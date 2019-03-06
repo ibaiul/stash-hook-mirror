@@ -1,9 +1,9 @@
 package com.englishtown.bitbucket.hook;
 
-import com.atlassian.bitbucket.hook.repository.AsyncPostReceiveRepositoryHook;
-import com.atlassian.bitbucket.hook.repository.RepositoryHookContext;
+import com.atlassian.bitbucket.hook.repository.PostRepositoryHook;
+import com.atlassian.bitbucket.hook.repository.PostRepositoryHookContext;
+import com.atlassian.bitbucket.hook.repository.RepositoryPushHookRequest;
 import com.atlassian.bitbucket.i18n.I18nService;
-import com.atlassian.bitbucket.repository.RefChange;
 import com.atlassian.bitbucket.repository.Repository;
 import com.atlassian.bitbucket.repository.RepositoryService;
 import com.atlassian.bitbucket.scm.CommandExitHandler;
@@ -11,9 +11,12 @@ import com.atlassian.bitbucket.scm.DefaultCommandExitHandler;
 import com.atlassian.bitbucket.scm.ScmCommandBuilder;
 import com.atlassian.bitbucket.scm.ScmService;
 import com.atlassian.bitbucket.scm.git.command.GitScmCommandBuilder;
-import com.atlassian.bitbucket.setting.RepositorySettingsValidator;
+import com.atlassian.bitbucket.scope.RepositoryScope;
+import com.atlassian.bitbucket.scope.Scope;
+import com.atlassian.bitbucket.scope.ScopeVisitor;
 import com.atlassian.bitbucket.setting.Settings;
 import com.atlassian.bitbucket.setting.SettingsValidationErrors;
+import com.atlassian.bitbucket.setting.SettingsValidator;
 import com.atlassian.sal.api.pluginsettings.PluginSettings;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
 import com.google.common.base.Strings;
@@ -28,7 +31,7 @@ import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class MirrorRepositoryHook implements AsyncPostReceiveRepositoryHook, RepositorySettingsValidator {
+public class MirrorRepositoryHook implements PostRepositoryHook<RepositoryPushHookRequest>, SettingsValidator {
 
     protected static class MirrorSettings {
         String mirrorRepoUrl;
@@ -96,19 +99,19 @@ public class MirrorRepositoryHook implements AsyncPostReceiveRepositoryHook, Rep
      * Despite being asynchronous, the user who initiated this change is still available from
      *
      * @param context    the context which the hook is being run with
-     * @param refChanges the refs that have just been updated
+     * @param request    provides details about the refs that have been updated
      */
     @Override
-    public void postReceive(
-            @Nonnull RepositoryHookContext context,
-            @Nonnull Collection<RefChange> refChanges) {
+    public void postUpdate(
+            @Nonnull PostRepositoryHookContext context,
+            @Nonnull RepositoryPushHookRequest request) {
 
         logger.debug("MirrorRepositoryHook: postReceive started.");
 
         List<MirrorSettings> mirrorSettings = getMirrorSettings(context.getSettings());
 
         for (MirrorSettings settings : mirrorSettings) {
-            runMirrorCommand(settings, context.getRepository());
+            runMirrorCommand(settings, request.getRepository());
         }
 
     }
@@ -212,13 +215,13 @@ public class MirrorRepositoryHook implements AsyncPostReceiveRepositoryHook, Rep
      *
      * @param settings   to be validated
      * @param errors     callback for reporting validation errors.
-     * @param repository the context {@code Repository} the settings will be associated with
+     * @param scope      the context {@code Repository} the settings will be associated with
      */
     @Override
     public void validate(
             @Nonnull Settings settings,
             @Nonnull SettingsValidationErrors errors,
-            @Nonnull Repository repository) {
+            @Nonnull Scope scope) {
 
         try {
             boolean ok = true;
@@ -236,7 +239,13 @@ public class MirrorRepositoryHook implements AsyncPostReceiveRepositoryHook, Rep
             if (ok) {
                 updateSettings(mirrorSettings, settings);
                 for (MirrorSettings ms : mirrorSettings) {
-                    runMirrorCommand(ms, repository);
+                	scope.accept(new ScopeVisitor<Void>() {
+                        @Override
+                        public Void visit(@Nonnull RepositoryScope scope) {
+                            runMirrorCommand(ms, scope.getRepository());
+                            return null;
+                        }
+                    });
                 }
             }
 
