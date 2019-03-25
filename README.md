@@ -1,26 +1,88 @@
-[![Build Status](https://travis-ci.org/ef-labs/stash-hook-mirror.png)](https://travis-ci.org/ef-labs/stash-hook-mirror)
-
-# Bitbucket Server Repository Hook for Mirroring
+# Bitbucket Server Repository Hook for Mirroring (Englishtown fork)
 
 The following is a plugin for Atlassian Bitbucket Server to provide repository mirroring to a remote repository.
 
+Tested and working correctly on Bitbucket 6.0.0
 
-* `atlas-run`   -- installs this plugin into the product and starts it on localhost
-* `atlas-debug` -- same as `atlas-run`, but allows a debugger to attach at port 5005
-* `atlas-debug --jvm-debug-suspend` -- same as `atlas-debug` but waits for the debugger to attach
-* `atlas-cli`   -- after atlas-run or atlas-debug, opens a Maven command line window:
-                 - 'pi' reinstalls the plugin into the running product instance
-* `atlas-help`  -- prints description for all commands in the SDK
+## Notice
 
+I have forked the original [repository](https://github.com/ef-labs/stash-hook-mirror) for my personal use since the original author has not committed in more than a year and after updating my Bitbucket instance to 6.0.0 the plugin was not supported anymore.
 
-Full documentation is always available at:
-https://developer.atlassian.com/display/DOCS/Introduction+to+the+Atlassian+Plugin+SDK
+I committed the minimum changes required to adapt it to Bitbucket 6.0.0.
 
+Many, many thanks to [@Englishtown](http://www.englishtown.com) for the great contribution.
 
-Soy documentation is available here:
-https://bitbucket.org/atlassian/aui-adg/wiki/versions/product-version-matrix
-https://bitbucket.org/atlassian/aui/src/master/src/soy/form.soy
+This repository does not pretend to replace the original work in any way and I do not have the intention to maintain or publish this in the Atlassian market, instead I will provide the necessary steps to build your own version with the minimum changes required to make it work in Bitbucket +6.0.0 in case you need to use it before the original author can update his work or merge any pull requests.
 
+## Steps
 
-The plugin can be found on the Atlassian Marketplace here:
-https://marketplace.atlassian.com/plugins/com.englishtown.stash-hook-mirror
+Below you will find the required steps to build a jar file that contains the modified version of the plugin that makes it compatible with Bitbucket +6.0.0. Once the jar is built, you will be able to upload it to your own Bitbucket instances and start using it.
+
+##### Install Atlassian SDK (RPM / RHEL / CentOS / Fedora (Yum))
+
+Install Java 8
+
+```
+sudo yum install jdk
+```
+
+Create repository definition file
+
+```
+sudo nano /etc/yum.repos.d/artifactory.repo
+```
+Copy the content below
+
+```
+[Artifactory]
+name=Artifactory
+baseurl=https://packages.atlassian.com//atlassian-sdk-rpm/
+enabled=1
+gpgcheck=0
+```
+Install the SDK
+
+```
+sudo yum clean all
+sudo yum updateinfo metadata
+sudo yum install atlassian-plugin-sdk
+```
+##### Install Atlassian SDK (other platforms)
+
+https://developer.atlassian.com/server/framework/atlassian-sdk/downloads/
+
+##### Clone this repository
+
+Check the commits and if you trust my changes then proceed. The default branch is called **ibai**
+
+```
+git clone https://github.com/ibaiul/stash-hook-mirror.git
+```
+##### Change pom.xml
+
+Optionally you can edit the pom.xml file to adapt the artifactId, groupId, repositories, etc. to match your organization.
+
+##### Build your artifact
+
+To build your own artifact go to the folder where pom.xml file is located and build it.
+
+```
+cd <path_where_you_cloned_this_repo>
+atlas-mvn clean package
+```
+If everything went correctly you can grab your plugin jar file at the target folder.
+
+```
+ls -l target/stash-hook-mirror-${version}.jar
+```
+##### Use my artifact
+
+If you don't feel on the mood of building your own jar file, you can get the version I built for myself, although I would recommend building your own jar from the source code since you can always audit it.
+
+You should not use artifacts built from unknown sources since you never know what it could be inside. That said, if you want to proceed, you can get my artifact [here](https://nexus.ibai.eus/repository/maven-releases-public/eus/ibai/stash-hook-mirror/2.4.0/stash-hook-mirror-2.4.0.jar).
+
+##### Install the plugin
+
+Browse your Bitbucket instance as admin and click on "Administration" (top right corner) -> "Manage apps" (Addons section) -> "Upload app" -> Select the jar file you just built.
+
+Now you should be able to enable the plugin in your repositories under the "Repository Settings" -> "Hooks" section.
